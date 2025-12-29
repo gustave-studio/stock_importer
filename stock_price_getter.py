@@ -10,7 +10,7 @@ from datetime import datetime
 args = getResolvedOptions(sys.argv, ['DATE'])
 
 # S3にアップロードするための情報
-bucket_name = "f-test-glue00"
+bucket_name = "gs-analysis-platform"
 
 # 銘柄を指定
 target = "AAPL"
@@ -22,11 +22,11 @@ data = yf.download(target, period='1d', interval='1d')
 print(data)
 
 # yfinanceのバグか仕様変更でヘッダーが変わったので、ヘッダーを独自に書き換える
-data.index.name = 'Date'
+data.index.name = 'date'
 #data.columns = ["Adj Close", "Close", "High", "Low", "Open", "Volume"]
 
-expected_cols_5 = ["Open", "High", "Low", "Close", "Volume"]
-expected_cols_6 = ["Open", "High", "Low", "Close", "Adj Close", "Volume"]
+expected_cols_5 = ["open", "high", "low", "close", "volume"]
+expected_cols_6 = ["open", "high", "low", "close", "adj_close", "volume"]
 
 if data.shape[1] == 5:
     data.columns = expected_cols_5
@@ -42,7 +42,7 @@ print(data)
 date_str = args['DATE']
 
 # S3パスを作成
-s3_file_name = f"se2/in0/stock_price/{date_str}/stock_price.csv"
+s3_file_name = f"csv/stock_price/{date_str}/stock_price.csv"
 
 # CSVファイルとして保存するための一時ファイルパス
 csv_file_path = "/tmp/stock_price.csv"
@@ -58,32 +58,31 @@ csv_file_path = "/tmp/stock_price.csv"
 with open(csv_file_path, mode='w', newline='') as file:
     writer = csv.writer(file)
 
-    if 'Adj Close' in data.columns:
+    if 'adj_close' in data.columns:
         # 6列ある (Open, High, Low, Close, Adj Close, Volume)
-        writer.writerow(["Date", "Open", "High", "Low", "Close", "Adj Close", "Volume"])
+        writer.writerow(["date", "open", "high", "low", "close", "adj_close", "volume"])
         for index, row in data.iterrows():
             writer.writerow([
                 index,
-                row['Open'],
-                row['High'],
-                row['Low'],
-                row['Close'],
-                row['Adj Close'],
-                row['Volume']
+                row['open'],
+                row['high'],
+                row['low'],
+                row['close'],
+                row['adj_close'],
+                row['volume']
             ])
     else:
         # 'Adj Close' 列がない ⇒ 5列だけ
-        writer.writerow(["Date", "Open", "High", "Low", "Close", "Volume"])
+        writer.writerow(["date", "open", "high", "low", "close", "volume"])
         for index, row in data.iterrows():
             writer.writerow([
                 index,
-                row['Open'],
-                row['High'],
-                row['Low'],
-                row['Close'],
-                row['Volume']
+                row['open'],
+                row['high'],
+                row['low'],
+                row['close'],
+                row['volume']
             ])
-
 
 # S3にファイルをアップロード
 s3 = boto3.client('s3')
